@@ -20,12 +20,6 @@ from sklearn.metrics.pairwise import haversine_distances
 # We will sample 10% of the dataset and drop problematic rows
 dataset = pandas.read_csv("Crimes_-_2001_to_Present.csv")
 dataset = dataset.sample(frac=0.1).reset_index(drop=True)
-
-# Drop any issues in the IUCR values.
-for i in range(len(dataset.index)):
-    word = dataset.loc[dataset.index[i], 'IUCR']
-    if ord(word[-1]) >= 65:
-        dataset.drop([dataset.index[i]])
 dataset = dataset.dropna()
 
 # Reassign the datetime and its components to the dataset variable for use
@@ -98,6 +92,10 @@ dataset['Domestic'] = dataset['Domestic']*1
 # Get dummies for location description
 loc_description = pandas.get_dummies(dataset['Location Description'])
 
+# Set dummies for our dependent variable
+#crime_type = pandas.get_dummies(dataset['Primary Type'])
+
+theft_type = numpy.where(dataset['Primary Type']=='THEFT', 1, 0)
 
 #######################################################################################################################
 #######################################################################################################################
@@ -106,8 +104,10 @@ loc_description = pandas.get_dummies(dataset['Location Description'])
 # Assign Data and Target
 data = dataset.loc[:,['season_slot', 'day_slot', 'time_slot', 'distance_from_station', 'Arrest', 'Domestic']].values
 data = numpy.append(data, loc_description.iloc[:,:].values, axis=1)
-target = dataset['IUCR'].values
-target = target.astype(numpy.int)
+target = theft_type
+
+#print("data size: ", len(data), len(data[0]))
+#print("target size: ", len(target), len(target[0]))
 
 
 # We will randomly split our initial data set in 8 parts
@@ -124,14 +124,13 @@ for training_index, test_index in kfold_object.split(data):
     target_training = target[training_index]
     target_test = target[test_index]
 
-# Run linear or logistic regression on training data
-machine = linear_model.LinearRegression()
-print(type(target_training[0]))
+# Run multinomial logistic regression on training data
+machine = linear_model.LogisticRegression()
 machine.fit(data_training, target_training)
 
 # Predict new set of y-values to compare with "test" y-values
 new_target = machine.predict(data_test)
 
-# Print out comparison of predicted outputs to the "test" outputs
+# Print out comparison of predicted outputs to the test outputs
 # print(metrics.r2_score(target_test, new_target))
 print("Accuracy Score: ", metrics.accuracy_score(target_test, new_target))
